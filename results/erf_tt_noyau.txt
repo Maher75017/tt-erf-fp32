@@ -1,0 +1,35 @@
+// 2M c=1.0 A6/B14 : max 1.000 ULP (Blackhole, exhaustif=True), 0.000 % > 1 ULP, coût estimé 80 (actuel 64)
+//   ax = min(|x|, 3.921875) ; si ax < 1.0 : y = 2^-24*(xs + xs*P(ax²)), xs = 2^24*ax ; sinon y = Q(ax - 2.46875) ; y = copysign(y, x)
+//   P (degré 0 -> n, en x²) : 0x1.06eba8p-3f, -0x1.81273cp-2f, 0x1.ce2d0cp-4f, -0x1.b7fb6cp-6f, 0x1.5415d2p-8f, -0x1.a4564cp-11f, 0x1.4a4bd4p-14f
+//   Q (degré 0 -> d, en ax-m) : 0x1.ffc102p-1f, 0x1.4d76c2p-9f, -0x1.9ba12p-8f, 0x1.36fcbcp-7f, -0x1.3b3a72p-7f, 0x1.b3912cp-8f, -0x1.7d36dap-9f, 0x1.fab542p-12f, 0x1.5cf298p-12f, -0x1.32f544p-12f, 0x1.46f9d6p-14f, 0x1.7f20f6p-16f, -0x1.217f12p-16f, 0x1.fap-23f, 0x1.238952p-20f
+
+// R5/6+corr : max 6.011 ULP (Blackhole, exhaustif=True), 8.753 % > 1 ULP, coût estimé 54 (actuel 64)
+//   x borné à ±3.921875 ; y = x*N(x²) * recip(D(x²)) ; e = x*N - y*D ; y += recip*e ; sortie bornée à [-1,1]
+//   N (degré 0 -> n) : 0x1.20dd74p+0f, 0x1.8a1a8ep-3f, 0x1.c78bf6p-5f, 0x1.1315f4p-8f, 0x1.aae03cp-12f, 0x1.bdacd6p-18f
+//   D (degré 0 -> d) : 0x1.0p+0f, 0x1.01fbap-1f, 0x1.e03624p-4f, 0x1.09cdd2p-6f, 0x1.719914p-10f, 0x1.2bde16p-14f, 0x1.0e68fap-22f
+
+// 2M c=1.5 A7/B10 : max 2.153 ULP (Blackhole, exhaustif=True), 0.015 % > 1 ULP, coût estimé 73 (actuel 64)
+//   ax = min(|x|, 3.921875) ; si ax < 1.5 : y = 2^-24*(xs + xs*P(ax²)), xs = 2^24*ax ; sinon y = Q(ax - 2.71875) ; y = copysign(y, x)
+//   P (degré 0 -> n, en x²) : 0x1.06eba4p-3f, -0x1.812708p-2f, 0x1.ce262p-4f, -0x1.b7ade8p-6f, 0x1.52e368p-8f, -0x1.a53506p-11f, 0x1.806738p-14f, -0x1.78c598p-18f
+//   Q (degré 0 -> d, en ax-m) : 0x1.fff032p-1f, 0x1.6c8eb2p-11f, -0x1.f007d8p-10f, 0x1.a3477p-9f, -0x1.e586d2p-9f, 0x1.91b2aep-9f, -0x1.df1198p-10f, 0x1.6d3b88p-11f, -0x1.16c74ap-15f, -0x1.f89e7ap-14f, 0x1.643d4ap-15f
+
+// 2M c=1.25 A7/B13 : max 1.575 ULP (Blackhole, exhaustif=True), 0.034 % > 1 ULP, coût estimé 77 (actuel 64)
+//   ax = min(|x|, 3.921875) ; si ax < 1.25 : y = 2^-24*(xs + xs*P(ax²)), xs = 2^24*ax ; sinon y = Q(ax - 2.59375) ; y = copysign(y, x)
+//   P (degré 0 -> n, en x²) : 0x1.06eba8p-3f, -0x1.81274ap-2f, 0x1.ce2e0ep-4f, -0x1.b814a8p-6f, 0x1.5564a4p-8f, -0x1.b54ccep-11f, 0x1.b4p-14f, -0x1.fcp-18f
+//   Q (degré 0 -> d, en ax-m) : 0x1.ffdff8p-1f, 0x1.62344ep-10f, -0x1.cb5f3cp-9f, 0x1.6faf02p-8f, -0x1.902aa6p-8f, 0x1.30b6c8p-8f, -0x1.3a31e4p-9f, 0x1.61fa76p-11f, 0x1.6248d4p-14f, -0x1.8882fcp-13f, 0x1.3a6ee4p-14f, 0x1.2ep-25f, -0x1.1cp-17f, 0x1.dap-20f
+
+// 2M c=1.75 A8/B11 : max 3.377 ULP (Blackhole, exhaustif=True), 30.615 % > 1 ULP, coût estimé 79 (actuel 64)
+//   ax = min(|x|, 3.921875) ; si ax < 1.75 : y = 2^-24*(xs + xs*P(ax²)), xs = 2^24*ax ; sinon y = Q(ax - 2.84375) ; y = copysign(y, x)
+//   P (degré 0 -> n, en x²) : 0x1.06ebb6p-3f, -0x1.812722p-2f, 0x1.ce29c6p-4f, -0x1.b7e684p-6f, 0x1.54887cp-8f, -0x1.b24274p-11f, 0x1.b9205cp-14f, -0x1.3bbec8p-17f, 0x1.ce03d6p-22f
+//   Q (degré 0 -> d, en ax-m) : 0x1.fff86ep-1f, 0x1.6bd8bap-12f, -0x1.02bfd6p-10f, 0x1.cc4412p-10f, -0x1.1be4a8p-9f, 0x1.fb26aap-10f, -0x1.4aac24p-10f, 0x1.2b4fbp-11f, -0x1.0a6658p-13f, -0x1.47948ep-15f, 0x1.410a08p-15f, -0x1.195022p-17f
+
+// 2M c=1.5 A7/B12 : max 2.534 ULP (Blackhole, exhaustif=True), 0.014 % > 1 ULP, coût estimé 79 (actuel 64)
+//   ax = min(|x|, 3.921875) ; si ax < 1.5 : y = 2^-24*(xs + xs*P(ax²)), xs = 2^24*ax ; sinon y = Q(ax - 2.71875) ; y = copysign(y, x)
+//   P (degré 0 -> n, en x²) : 0x1.06eba4p-3f, -0x1.81270ap-2f, 0x1.ce261ep-4f, -0x1.b7adcap-6f, 0x1.52e372p-8f, -0x1.a53562p-11f, 0x1.8066bap-14f, -0x1.78c9eep-18f
+//   Q (degré 0 -> d, en ax-m) : 0x1.fff032p-1f, 0x1.6ca022p-11f, -0x1.efb88ep-10f, 0x1.a30aeep-9f, -0x1.e6dd24p-9f, 0x1.92a478p-9f, -0x1.d73a12p-10f, 0x1.670a52p-11f, -0x1.2fd73ep-14f, -0x1.d527d6p-14f, 0x1.15664cp-14f, -0x1.264786p-19f, -0x1.681bf8p-18f
+
+// 2M c=1.5 A8/B12 : max 2.309 ULP (Blackhole, exhaustif=True), 0.061 % > 1 ULP, coût estimé 82 (actuel 64)
+//   ax = min(|x|, 3.921875) ; si ax < 1.5 : y = 2^-24*(xs + xs*P(ax²)), xs = 2^24*ax ; sinon y = Q(ax - 2.71875) ; y = copysign(y, x)
+//   P (degré 0 -> n, en x²) : 0x1.06eba6p-3f, -0x1.812744p-2f, 0x1.ce2e58p-4f, -0x1.b81f08p-6f, 0x1.55dd26p-8f, -0x1.bb024p-11f, 0x1.d94398p-14f, -0x1.79bb4ap-17f, 0x1.48da6cp-21f
+//   Q (degré 0 -> d, en ax-m) : 0x1.fff032p-1f, 0x1.6ca042p-11f, -0x1.efb896p-10f, 0x1.a30aa2p-9f, -0x1.e6dcbep-9f, 0x1.92a526p-9f, -0x1.d73b56p-10f, 0x1.670862p-11f, -0x1.2fd4cp-14f, -0x1.d52462p-14f, 0x1.156b2cp-14f, -0x1.264c92p-19f, -0x1.6820fcp-18f
+
