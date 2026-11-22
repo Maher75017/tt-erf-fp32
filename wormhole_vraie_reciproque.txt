@@ -1,0 +1,11 @@
+# Wormhole : vraie réciproque de tt-metal (wormhole_b0/.../ckernel_sfpu_recip.h, commit a695405 du 22/11/2026)
+# 1) Contrôle de la réciproque modélisée (model/ctrl_recip.c)
+réciproque WH modélisée : max 0.892 ULP (x=32.0412865) | réciproque BH : max 1.491 ULP
+contrôle négatif (K1 faussé) : max 114749471.5 ULP
+# 2) Évaluation exhaustive des 2 139 095 041 entrées positives (model/wh_recip.c, ./wh_recip 1)
+actuel  BH (SFPARECIP)                   max   8.000 ULP (x=5.86362696) | > 1 ULP  8.968 % | moyenne 0.341 | 2139095041 entrées
+propose BH (SFPARECIP)                   max   6.011 ULP (x=3.244385) | > 1 ULP  8.753 % | moyenne 0.335 | 2139095041 entrées
+actuel  WH (ancien modele : recip BH)    max   8.000 ULP (x=5.86362696) | > 1 ULP  8.968 % | moyenne 0.341 | 2139095041 entrées
+propose WH (ancien modele : recip BH)    max   6.011 ULP (x=3.244385) | > 1 ULP  8.753 % | moyenne 0.335 | 2139095041 entrées
+actuel  WH (vraie recip WH)              max   7.000 ULP (x=5.86362696) | > 1 ULP  9.052 % | moyenne 0.341 | 2139095041 entrées
+propose WH (vraie recip WH)              max   6.011 ULP (x=3.244385) | > 1 ULP  8.752 % | moyenne 0.335 | 2139095041 entrées

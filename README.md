@@ -7,15 +7,25 @@ Author: Maher El Hmissi ([Maher75017](https://github.com/Maher75017)), November 
 
 ## Results at a glance
 
-Exhaustive evaluation of all 2,139,095,041 positive FP32 inputs (0 to +inf; `erf` is odd), identical on the Blackhole and Wormhole SFPMAD models.
+Exhaustive evaluation of all 2,139,095,041 positive FP32 inputs (0 to +inf; `erf` is odd), on bit-exact models of both chips.
 
-| Kernel | SFPU instructions per element (estimate) | Max error | Inputs above 1 ULP | Mean error |
-| --- | --- | --- | --- | --- |
-| Current tt-metal (rational n16/d16 on [-10, 10], output clamp) | 64 | 8.000 ULP | 8.97 % | 0.341 ULP |
-| **Proposed default** (`R5/6+corr`: x·N(x²)/D(x²) + one correction step) | **54** | **6.011 ULP** | 8.75 % | 0.335 ULP |
-| Precise variant (`2M c=1.0 A6/B14`: two polynomials, split at \|x\| = 1) | 80 | **1.000 ULP** | **0 %** | 0.374 ULP |
+| Kernel | SFPU instructions per element (estimate) | Max error, Blackhole | Max error, Wormhole | Inputs above 1 ULP (BH / WH) | Mean error |
+| --- | --- | --- | --- | --- | --- |
+| Current tt-metal (rational n16/d16 on [-10, 10], output clamp) | 64 | 8.000 ULP | 7.000 ULP | 8.97 % / 9.05 % | 0.341 ULP |
+| **Proposed default** (`R5/6+corr`: x·N(x²)/D(x²) + one correction step) | **54** | **6.011 ULP** | **6.011 ULP** | 8.75 % / 8.75 % | 0.335 ULP |
+| Precise variant (`2M c=1.0 A6/B14`: two polynomials, split at \|x\| = 1) | 80 | **1.000 ULP** | **1.000 ULP** | **0 % / 0 %** | 0.374 ULP |
 
 Other variants (2.2 ULP at 73 instructions, 1.6 ULP at 77, …) are listed in `results/erf_tt_noyau.txt`, with every coefficient in hexadecimal.
+
+## Correction (22 November 2026)
+
+The first version of this page said the Wormhole figures were identical to the Blackhole ones. That was wrong for kernels that divide. The 19 November run modelled Wormhole's SFPMAD, but used the Blackhole reciprocal sequence on both chips; tt-metal's Wormhole `sfpu_reciprocal` is a different algorithm (quadratic seed, two Newton steps, power-of-two scaling). With it modelled step by step (`model/wh_recip.c`, results in `results/wormhole_vraie_reciproque.txt`):
+
+- the current kernel on Wormhole is **7.000 ULP** max with 9.05 % of inputs above 1 ULP (not 8.000 ULP and 8.97 %);
+- the proposed kernel is unchanged on Wormhole (6.011 ULP, 8.75 %): its correction step absorbs the difference between the two reciprocals;
+- the precise variant does not divide, so its figures were already right for both chips.
+
+A sample of 214,489 inputs puts the current kernel's worst case at 4.5 ULP; the exhaustive run finds 8.0 ULP on Blackhole (at x = 5.8636, where `erf` rounds to 1.0f). Sampling does not find the worst cases.
 
 ## Caveats, stated upfront
 
@@ -27,8 +37,9 @@ Other variants (2.2 ULP at 73 instructions, 1.6 ULP at 77, …) are listed in `r
 ## How it was verified
 
 1. **Bit-exact model of the arithmetic.** `model/sfpu_model.h` ports Tenstorrent's reference model of SFPMAD (Blackhole and Wormhole, `model/fma_ref.c` from tt-isa-documentation, unchanged) and the SFPARECIP description. `model/verif_modele.c` compares the port with the reference on 20 million random operand triples, half of them with close exponents to exercise cancellations: **0 mismatches** on Blackhole and on Wormhole. Control: comparing the Wormhole port against the Blackhole reference gives 118,031 mismatches, so the test does detect differences.
-2. **Metric.** Error in ULP against `erf` computed in float64 on the exact input, with the ULP size taken in the binade of the exact value. This is slightly stricter than the metric used in #58282.
-3. **Positive control.** The model of the current kernel reproduces the ttsim figures published in #58282, band by band:
+2. **Wormhole reciprocal.** `model/wh_recip.c` follows tt-metal's Wormhole `sfpu_reciprocal` instruction by instruction (`ckernel_sfpu_recip.h`, commit a695405). Control (`model/ctrl_recip.c`): on every 7th input from 1 to 2^25, the modelled reciprocal is within 0.892 ULP of 1/x; with one constant corrupted it is off by about 10^8 ULP.
+3. **Metric.** Error in ULP against `erf` computed in float64 on the exact input, with the ULP size taken in the binade of the exact value. This is slightly stricter than the metric used in #58282.
+4. **Positive control.** The model of the current kernel reproduces the ttsim figures published in #58282, band by band:
 
 | \|x\| band | Mean error, this model | Mean error, #58282 (ttsim) | Above 1 ULP, this model | Above 1 ULP, #58282 |
 | --- | --- | --- | --- | --- |
@@ -39,8 +50,8 @@ Other variants (2.2 ULP at 73 instructions, 1.6 ULP at 77, …) are listed in `r
 | [2.5, 3.0] | 1.135 | 1.122 | 48.5 % | 49.0 % |
 | [3.0, 4.0] | 1.146 | 1.127 | 47.7 % | 46.8 % |
 
-4. **Negative control.** Shifting one coefficient of the precise variant by 256 ULP raises its maximum error to 64.9 ULP.
-5. **Saturation.** `erf(x)` rounds to 1.0f from x = 3.9192059; the inputs are clamped at 3.921875, exactly representable in bf16.
+5. **Negative control.** Shifting one coefficient of the precise variant by 256 ULP raises its maximum error to 64.9 ULP.
+6. **Saturation.** `erf(x)` rounds to 1.0f from x = 3.9192059; the inputs are clamped at 3.921875, exactly representable in bf16.
 
 ## Proof of date
 
@@ -60,13 +71,18 @@ cd model && gcc -O2 -o verif_modele verif_modele.c fma_ref.c -lm && ./verif_mode
 #    (47 minutes on an RTX 5090). --cpu uses gcc + OpenMP instead (much slower);
 #    --rapide runs a short test.
 cd ../erf && python3 erf_tt.py --minutes 40
+
+# 3. Wormhole with its true reciprocal (gcc + OpenMP): control in a few seconds,
+#    exhaustive run of the 6 cases in about 25 minutes on 2 cores. ./wh_recip 97 samples every 97th input.
+cd ../model && gcc -O2 -o ctrl_recip ctrl_recip.c -lm && ./ctrl_recip
+gcc -O3 -march=native -fopenmp -o wh_recip wh_recip.c -lm && ./wh_recip 1
 ```
 
 The log of the reference run is `results/erf_tt.log`; all figures and coefficients are in `results/erf_tt_resultats.json`. The script's messages are in French.
 
 ## Next step
 
-A pull request against tt-metal, referencing #58282: the kernel change for Blackhole and Wormhole, tests, the accuracy-budget entries, and cycles per tile measured on ttsim rather than estimated.
+A pull request against tt-metal, referencing #58282: the kernel change for Blackhole and Wormhole, tests, the accuracy-budget entries, and cycles per tile measured on ttsim rather than estimated. Note: tt-llk's Float32 sweeps currently compile the bf16 path of `erf` ([#56492](https://github.com/tenstorrent/tt-metal/issues/56492)), so the pull request's measurements will define `INP_FLOAT32`.
 
 ## Layout
 
@@ -74,8 +90,10 @@ A pull request against tt-metal, referencing #58282: the kernel change for Black
 model/fma_ref.c        Tenstorrent's reference SFPMAD models (tt-isa-documentation, Apache-2.0, unchanged)
 model/sfpu_model.h     bit-exact C/CUDA port: SFPMAD (Blackhole, Wormhole), SFPARECIP, erf evaluation, ULP metric
 model/verif_modele.c   port vs reference on 20 million random triples
+model/wh_recip.c       exhaustive check with the true Wormhole reciprocal (designs.h: coefficients)
+model/ctrl_recip.c     control of the modelled Wormhole reciprocal against 1/x
 erf/erf_tt.py          full pipeline (control, search and polishing, exhaustive check)
-results/               reference run: log, JSON results, coefficient file
+results/               reference run: log, JSON results, coefficient file; wormhole_vraie_reciproque.txt
 SHA256SUMS             fingerprints of every file
 ```
 
