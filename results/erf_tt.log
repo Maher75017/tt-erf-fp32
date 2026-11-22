@@ -1,0 +1,157 @@
+================================================================================================
+TEST DÉCISIF — erf float32 sur SFPU Tenstorrent (modèle bit-exact SFPMAD + SFPARECIP)
+Critère fixé d'avance : GROS LOT = max <= 1.0 ULP et coût <= actuel ; PETIT LOT = max <= 2.0 ULP et coût <= actuel, ou max <= 1.0 ULP et coût <= 1.2 x actuel
+Moteur : GPU
+Saturation : erf(x) s'arrondit à 1.0f dès x = 3.9192059 ; borne utilisée (exacte en bf16) : 3.921875
+
+[1] Contrôle positif : erf actuelle de tt-metal (n16/d16 sur [-10, 10], clamp de sortie)
+    [0.5, 1.0] max  3.716 ULP  moyenne 0.653  > 1 ULP :  22.2 %
+    [1.0, 1.5] max  4.759 ULP  moyenne 0.946  > 1 ULP :  40.7 %
+    [1.5, 2.0] max  5.170 ULP  moyenne 0.972  > 1 ULP :  41.6 %
+    [2.0, 2.5] max  6.064 ULP  moyenne 1.065  > 1 ULP :  45.7 %
+    [2.5, 3.0] max  6.775 ULP  moyenne 1.135  > 1 ULP :  48.5 %
+    [3.0, 4.0] max  7.384 ULP  moyenne 1.146  > 1 ULP :  47.7 %
+    (signalement #58282, mesuré sur ttsim : moyennes 0.647 / 0.943 / 0.973 / 1.073 / 1.122 / 1.127, parts 22.5 / 40.8 / 41.2 / 45.8 / 49.0 / 46.8 %)
+    Exhaustif : Blackhole max 8.000 ULP (8.97 % > 1 ULP), Wormhole max 8.000 ULP | coût estimé 64 instructions
+
+[2] Recherche : 7 familles de formules, ~4.7 min chacune
+
+  --- 2M c=1.5 A8/B12 : x + x·P(x²) si |x|<1.5, sinon Q(|x|-m) ; degrés 8 et 12 ---
+  [2M c=1.5 A8/B12] ajustement : erreur d'approximation 0.118 ULP ; après arrondi float32 : 2.385 ULP
+  [2M c=1.5 A8/B12] tour 1 : échantillon 1.675 ULP | vérif. [0,3.921875] 2.127 ULP (pire x=1.4844625), 425 points chauds, 230645 pts, 163066 évals
+  [2M c=1.5 A8/B12] tour 2 : échantillon 1.787 ULP | vérif. [0,3.921875] 2.188 ULP (pire x=1.49683535), 295 points chauds, 231197 pts, 314915 évals
+  [2M c=1.5 A8/B12] tour 3 : échantillon 1.855 ULP | vérif. [0,3.921875] 2.198 ULP (pire x=1.49939537), 243 points chauds, 231618 pts, 398127 évals
+  [2M c=1.5 A8/B12] tour 4 : échantillon 1.802 ULP | vérif. [0,3.921875] 2.109 ULP (pire x=1.47658539), 554 points chauds, 231960 pts, 443839 évals
+  [2M c=1.5 A8/B12] tour 5 : échantillon 1.947 ULP | vérif. [0,3.921875] 2.407 ULP (pire x=1.49279225), 215 points chauds, 232629 pts, 468875 évals
+  [2M c=1.5 A8/B12] tour 6 : échantillon 1.944 ULP | vérif. [0,3.921875] 2.252 ULP (pire x=1.49512506), 254 points chauds, 232971 pts, 482592 évals
+  [2M c=1.5 A8/B12] tour 7 : échantillon 1.954 ULP | vérif. [0,3.921875] 2.228 ULP (pire x=1.49895644), 395 points chauds, 233329 pts, 489965 évals
+  [2M c=1.5 A8/B12] tour 8 : échantillon 2.094 ULP | vérif. [0,3.921875] 2.292 ULP (pire x=1.49116445), 424 points chauds, 233831 pts, 493928 évals
+  [2M c=1.5 A8/B12] tour 9 : échantillon 2.017 ULP | vérif. [0,3.921875] 2.160 ULP (pire x=1.497244), 887 points chauds, 234279 pts, 495914 évals
+  [2M c=1.5 A8/B12] tour 10 : échantillon 1.986 ULP | vérif. [0,3.921875] 2.234 ULP (pire x=1.223997), 5288 points chauds, 235018 pts, 496813 évals
+  [2M c=1.5 A8/B12] tour 11 : échantillon 2.234 ULP | vérif. [0,3.921875] 2.309 ULP (pire x=1.49733341), 2300 points chauds, 240329 pts, 497113 évals
+  [2M c=1.5 A8/B12] FINAL : Blackhole max 2.309 ULP (0.061 % > 1 ULP, moy 0.390) | Wormhole max 2.309 ULP | coût 82 vs 64 actuel
+
+  --- 2M c=1.25 A7/B13 : x + x·P(x²) si |x|<1.25, sinon Q(|x|-m) ; degrés 7 et 13 ---
+  [2M c=1.25 A7/B13] ajustement : erreur d'approximation 0.059 ULP ; après arrondi float32 : 1.840 ULP
+  [2M c=1.25 A7/B13] tour 1 : échantillon 1.243 ULP | vérif. [0,3.921875] 1.571 ULP (pire x=1.24383092), 663 points chauds, 230724 pts, 159176 évals
+  [2M c=1.25 A7/B13] tour 2 : échantillon 1.343 ULP | vérif. [0,3.921875] 1.639 ULP (pire x=1.23398948), 386 points chauds, 231513 pts, 311133 évals
+  [2M c=1.25 A7/B13] tour 3 : échantillon 1.370 ULP | vérif. [0,3.921875] 1.584 ULP (pire x=1.24591243), 569 points chauds, 232021 pts, 394431 évals
+  [2M c=1.25 A7/B13] tour 4 : échantillon 1.395 ULP | vérif. [0,3.921875] 1.698 ULP (pire x=1.24682498), 149 points chauds, 232708 pts, 440064 évals
+  [2M c=1.25 A7/B13] tour 5 : échantillon 1.487 ULP | vérif. [0,3.921875] 1.686 ULP (pire x=1.24240017), 468 points chauds, 232975 pts, 465150 évals
+  [2M c=1.25 A7/B13] tour 6 : échantillon 1.537 ULP | vérif. [0,3.921875] 1.708 ULP (pire x=1.19402575), 2330 points chauds, 233534 pts, 478737 évals
+  [2M c=1.25 A7/B13] tour 7 : échantillon 1.469 ULP | vérif. [0,3.921875] 1.656 ULP (pire x=1.22406721), 7963 points chauds, 235806 pts, 486167 évals
+  [2M c=1.25 A7/B13] tour 8 : échantillon 1.637 ULP | vérif. [0,3.921875] 1.673 ULP (pire x=1.24293637), 4414089 points chauds, 243793 pts, 490111 évals
+  [2M c=1.25 A7/B13] tour 9 : échantillon 1.538 ULP | vérif. [0,3.921875] 1.812 ULP (pire x=1.2466073), 209 points chauds, 283921 pts, 492060 évals
+  [2M c=1.25 A7/B13] tour 10 : échantillon 1.595 ULP | vérif. [0,3.921875] 1.731 ULP (pire x=1.2449739), 725 points chauds, 284211 pts, 492941 évals
+  [2M c=1.25 A7/B13] tour 11 : échantillon 1.626 ULP | vérif. [0,3.921875] 1.626 ULP (pire x=1.13150072), 3786 points chauds, 284558 pts, 493231 évals
+  [2M c=1.25 A7/B13] coefficient 7 en bf16 : OK (1.644 ULP), coût 81
+  [2M c=1.25 A7/B13] coefficient 21 en bf16 : OK (1.650 ULP), coût 80
+  [2M c=1.25 A7/B13] coefficient 6 en bf16 : OK (1.748 ULP), coût 79
+  [2M c=1.25 A7/B13] coefficient 20 en bf16 : OK (1.619 ULP), coût 78
+  [2M c=1.25 A7/B13] coefficient 5 en bf16 : refusé (20.524 ULP)
+  [2M c=1.25 A7/B13] coefficient 19 en bf16 : OK (1.575 ULP), coût 77
+  [2M c=1.25 A7/B13] coefficient 18 en bf16 : refusé (2.057 ULP)
+  [2M c=1.25 A7/B13] coefficient 4 en bf16 : refusé (160.591 ULP)
+  [2M c=1.25 A7/B13] coefficient 17 en bf16 : refusé (10.204 ULP)
+  [2M c=1.25 A7/B13] FINAL : Blackhole max 1.575 ULP (0.034 % > 1 ULP, moy 0.128) | Wormhole max 1.575 ULP | coût 77 vs 64 actuel
+
+  --- 2M c=1.75 A8/B11 : x + x·P(x²) si |x|<1.75, sinon Q(|x|-m) ; degrés 8 et 11 ---
+  [2M c=1.75 A8/B11] ajustement : erreur d'approximation 0.144 ULP ; après arrondi float32 : 2.851 ULP
+  [2M c=1.75 A8/B11] tour 1 : échantillon 2.840 ULP | vérif. [0,3.921875] 3.737 ULP (pire x=1.72259927), 164 points chauds, 230699 pts, 164202 évals
+  [2M c=1.75 A8/B11] tour 2 : échantillon 2.680 ULP | vérif. [0,3.921875] 3.520 ULP (pire x=1.74968815), 313 points chauds, 230989 pts, 316486 évals
+  [2M c=1.75 A8/B11] tour 3 : échantillon 2.737 ULP | vérif. [0,3.921875] 3.682 ULP (pire x=1.74422812), 191 points chauds, 231426 pts, 399842 évals
+  [2M c=1.75 A8/B11] tour 4 : échantillon 2.868 ULP | vérif. [0,3.921875] 3.858 ULP (pire x=1.74857867), 75 points chauds, 231743 pts, 445604 évals
+  [2M c=1.75 A8/B11] tour 5 : échantillon 3.023 ULP | vérif. [0,3.921875] 3.588 ULP (pire x=1.71292317), 369 points chauds, 231945 pts, 470569 évals
+  [2M c=1.75 A8/B11] tour 6 : échantillon 2.888 ULP | vérif. [0,3.921875] 3.506 ULP (pire x=1.71700931), 379 points chauds, 232434 pts, 484426 évals
+  [2M c=1.75 A8/B11] tour 7 : échantillon 3.150 ULP | vérif. [0,3.921875] 3.730 ULP (pire x=1.72327781), 437 points chauds, 232938 pts, 491832 évals
+  [2M c=1.75 A8/B11] tour 8 : échantillon 3.106 ULP | vérif. [0,3.921875] 3.748 ULP (pire x=1.72838676), 404 points chauds, 233489 pts, 495804 évals
+  [2M c=1.75 A8/B11] tour 9 : échantillon 3.326 ULP | vérif. [0,3.921875] 3.498 ULP (pire x=1.74359369), 514 points chauds, 234012 pts, 497795 évals
+  [2M c=1.75 A8/B11] tour 10 : échantillon 3.449 ULP | vérif. [0,3.921875] 3.578 ULP (pire x=1.73160172), 251 points chauds, 234443 pts, 498698 évals
+  [2M c=1.75 A8/B11] tour 11 : échantillon 3.377 ULP | vérif. [0,3.921875] 3.377 ULP (pire x=1.72377193), 787 points chauds, 234772 pts, 498999 évals
+  [2M c=1.75 A8/B11] FINAL : Blackhole max 3.377 ULP (30.615 % > 1 ULP, moy 0.805) | Wormhole max 3.377 ULP | coût 79 vs 64 actuel
+
+  --- 2M c=1.5 A7/B12 : x + x·P(x²) si |x|<1.5, sinon Q(|x|-m) ; degrés 7 et 12 ---
+  [2M c=1.5 A7/B12] ajustement : erreur d'approximation 0.208 ULP ; après arrondi float32 : 2.388 ULP
+  [2M c=1.5 A7/B12] tour 1 : échantillon 1.729 ULP | vérif. [0,3.921875] 2.225 ULP (pire x=1.47986186), 452 points chauds, 230716 pts, 162557 évals
+  [2M c=1.5 A7/B12] tour 2 : échantillon 1.755 ULP | vérif. [0,3.921875] 2.357 ULP (pire x=1.4999913), 179 points chauds, 231294 pts, 314514 évals
+  [2M c=1.5 A7/B12] tour 3 : échantillon 1.949 ULP | vérif. [0,3.921875] 2.424 ULP (pire x=1.49964571), 102 points chauds, 231598 pts, 397954 évals
+  [2M c=1.5 A7/B12] tour 4 : échantillon 1.983 ULP | vérif. [0,3.921875] 2.411 ULP (pire x=1.46258676), 1352 points chauds, 231822 pts, 443761 évals
+  [2M c=1.5 A7/B12] tour 5 : échantillon 2.030 ULP | vérif. [0,3.921875] 2.563 ULP (pire x=1.49885321), 84 points chauds, 233293 pts, 468717 évals
+  [2M c=1.5 A7/B12] tour 6 : échantillon 2.131 ULP | vérif. [0,3.921875] 2.348 ULP (pire x=1.47702765), 572 points chauds, 233505 pts, 482453 évals
+  [2M c=1.5 A7/B12] tour 7 : échantillon 2.332 ULP | vérif. [0,3.921875] 2.482 ULP (pire x=1.44531262), 646 points chauds, 234106 pts, 489739 évals
+  [2M c=1.5 A7/B12] tour 8 : échantillon 2.326 ULP | vérif. [0,3.921875] 2.473 ULP (pire x=1.49929297), 283 points chauds, 234819 pts, 493707 évals
+  [2M c=1.5 A7/B12] tour 9 : échantillon 2.152 ULP | vérif. [0,3.921875] 2.529 ULP (pire x=1.49950111), 88 points chauds, 235040 pts, 495668 évals
+  [2M c=1.5 A7/B12] tour 10 : échantillon 2.194 ULP | vérif. [0,3.921875] 2.426 ULP (pire x=1.49773574), 211 points chauds, 235240 pts, 496571 évals
+  [2M c=1.5 A7/B12] tour 11 : échantillon 2.326 ULP | vérif. [0,3.921875] 2.534 ULP (pire x=1.49939704), 122 points chauds, 235537 pts, 496874 évals
+  [2M c=1.5 A7/B12] FINAL : Blackhole max 2.534 ULP (0.014 % > 1 ULP, moy 0.430) | Wormhole max 2.534 ULP | coût 79 vs 64 actuel
+
+  --- 2M c=1.0 A6/B14 : x + x·P(x²) si |x|<1.0, sinon Q(|x|-m) ; degrés 6 et 14 ---
+  [2M c=1.0 A6/B14] ajustement : erreur d'approximation 0.111 ULP ; après arrondi float32 : 1.082 ULP
+  [2M c=1.0 A6/B14] tour 1 : échantillon 0.884 ULP | vérif. [0,3.921875] 1.064 ULP (pire x=1.0011549), 1311 points chauds, 230699 pts, 157171 évals
+  [2M c=1.0 A6/B14] tour 2 : échantillon 0.849 ULP | vérif. [0,3.921875] 0.991 ULP (pire x=0.995568395), 72139 points chauds, 232133 pts, 308978 évals
+  [2M c=1.0 A6/B14] tour 3 : échantillon 0.958 ULP | vérif. [0,3.921875] 1.140 ULP (pire x=1.0006398), 352 points chauds, 272185 pts, 391501 évals
+  [2M c=1.0 A6/B14] tour 4 : échantillon 0.987 ULP | vérif. [0,3.921875] 1.033 ULP (pire x=1.00104308), 2983 points chauds, 272651 pts, 436586 évals
+  [2M c=1.0 A6/B14] tour 5 : échantillon 0.987 ULP | vérif. [0,3.921875] 0.996 ULP (pire x=0.977273226), 7305 points chauds, 275211 pts, 461283 évals
+  [2M c=1.0 A6/B14] tour 6 : échantillon 0.987 ULP | vérif. [0,3.921875] 0.993 ULP (pire x=1.00078702), 7785 points chauds, 280420 pts, 474926 évals
+  [2M c=1.0 A6/B14] tour 7 : échantillon 0.991 ULP | vérif. [0,3.921875] 1.017 ULP (pire x=0.982061923), 3727 points chauds, 282285 pts, 482144 évals
+  [2M c=1.0 A6/B14] tour 8 : échantillon 0.991 ULP | vérif. [0,3.921875] 1.031 ULP (pire x=1.0012604), 2419 points chauds, 284229 pts, 486025 évals
+  [2M c=1.0 A6/B14] tour 9 : échantillon 0.991 ULP | vérif. [0,3.921875] 0.991 ULP (pire x=0.998318791), 5118 points chauds, 284942 pts, 487973 évals
+  [2M c=1.0 A6/B14] tour 10 : échantillon 0.991 ULP | vérif. [0,3.921875] 1.004 ULP (pire x=1.00006473), 4024 points chauds, 286220 pts, 488847 évals
+  [2M c=1.0 A6/B14] tour 11 : échantillon 0.991 ULP | vérif. [0,3.921875] 0.991 ULP (pire x=0.998318791), 5683 points chauds, 286774 pts, 489135 évals
+  [2M c=1.0 A6/B14] coefficient 6 en bf16 : refusé (1.025 ULP)
+  [2M c=1.0 A6/B14] coefficient 21 en bf16 : refusé (1.373 ULP)
+  [2M c=1.0 A6/B14] coefficient 5 en bf16 : refusé (1.463 ULP)
+  [2M c=1.0 A6/B14] coefficient 20 en bf16 : OK (0.991 ULP), coût 80
+  [2M c=1.0 A6/B14] coefficient 4 en bf16 : refusé (2.395 ULP)
+  [2M c=1.0 A6/B14] coefficient 19 en bf16 : refusé (3.791 ULP)
+  [2M c=1.0 A6/B14] coefficient 18 en bf16 : refusé (9.887 ULP)
+  [2M c=1.0 A6/B14] coefficient 3 en bf16 : refusé (1.167 ULP)
+  [2M c=1.0 A6/B14] coefficient 17 en bf16 : refusé (6.201 ULP)
+  [2M c=1.0 A6/B14] FINAL : Blackhole max 1.000 ULP (0.000 % > 1 ULP, moy 0.374) | Wormhole max 1.000 ULP | coût 80 vs 64 actuel
+
+  --- 2M c=1.5 A7/B10 : x + x·P(x²) si |x|<1.5, sinon Q(|x|-m) ; degrés 7 et 10 ---
+  [2M c=1.5 A7/B10] ajustement : erreur d'approximation 0.533 ULP ; après arrondi float32 : 2.183 ULP
+  [2M c=1.5 A7/B10] tour 1 : échantillon 1.838 ULP | vérif. [0,3.921875] 2.425 ULP (pire x=1.49813819), 122 points chauds, 230688 pts, 157308 évals
+  [2M c=1.5 A7/B10] tour 2 : échantillon 1.874 ULP | vérif. [0,3.921875] 2.289 ULP (pire x=1.49984396), 239 points chauds, 230937 pts, 309831 évals
+  [2M c=1.5 A7/B10] tour 3 : échantillon 1.953 ULP | vérif. [0,3.921875] 2.333 ULP (pire x=1.46990633), 473 points chauds, 231298 pts, 393509 évals
+  [2M c=1.5 A7/B10] tour 4 : échantillon 1.951 ULP | vérif. [0,3.921875] 2.335 ULP (pire x=1.46781456), 256 points chauds, 231886 pts, 439411 évals
+  [2M c=1.5 A7/B10] tour 5 : échantillon 2.035 ULP | vérif. [0,3.921875] 2.259 ULP (pire x=1.39104784), 626 points chauds, 232266 pts, 464471 évals
+  [2M c=1.5 A7/B10] tour 6 : échantillon 2.083 ULP | vérif. [0,3.921875] 2.285 ULP (pire x=1.48599255), 846 points chauds, 232957 pts, 478137 évals
+  [2M c=1.5 A7/B10] tour 7 : échantillon 2.127 ULP | vérif. [0,3.921875] 2.393 ULP (pire x=1.49987757), 212 points chauds, 233861 pts, 485624 évals
+  [2M c=1.5 A7/B10] tour 8 : échantillon 2.122 ULP | vérif. [0,3.921875] 2.186 ULP (pire x=1.474558), 1002 points chauds, 234165 pts, 489552 évals
+  [2M c=1.5 A7/B10] tour 9 : échantillon 2.131 ULP | vérif. [0,3.921875] 2.260 ULP (pire x=1.42920828), 821 points chauds, 235014 pts, 491547 évals
+  [2M c=1.5 A7/B10] tour 10 : échantillon 2.153 ULP | vérif. [0,3.921875] 2.153 ULP (pire x=1.47409832), 1358 points chauds, 235460 pts, 492452 évals
+  [2M c=1.5 A7/B10] tour 11 : échantillon 2.153 ULP | vérif. [0,3.921875] 2.153 ULP (pire x=1.47409832), 1300 points chauds, 235999 pts, 492757 évals
+  [2M c=1.5 A7/B10] FINAL : Blackhole max 2.153 ULP (0.015 % > 1 ULP, moy 0.182) | Wormhole max 2.153 ULP | coût 73 vs 64 actuel
+
+  --- R5/6+corr : x·N(x²)/D(x²), N degré 5, D degré 6, correction=oui ---
+  [R5/6+corr] ajustement : erreur d'approximation 0.035 ULP ; après arrondi float32 : 5.078 ULP
+  [R5/6+corr] tour 1 : échantillon 4.610 ULP | vérif. [0,3.921875] 5.732 ULP (pire x=3.60545492), 584 points chauds, 230763 pts, 158541 évals
+  [R5/6+corr] tour 2 : échantillon 4.654 ULP | vérif. [0,3.921875] 5.658 ULP (pire x=3.24702835), 856 points chauds, 231473 pts, 311697 évals
+  [R5/6+corr] tour 3 : échantillon 4.728 ULP | vérif. [0,3.921875] 6.383 ULP (pire x=3.6081686), 62 points chauds, 232446 pts, 395821 évals
+  [R5/6+corr] tour 4 : échantillon 4.779 ULP | vérif. [0,3.921875] 5.776 ULP (pire x=3.68174434), 484 points chauds, 232636 pts, 441967 évals
+  [R5/6+corr] tour 5 : échantillon 4.590 ULP | vérif. [0,3.921875] 6.122 ULP (pire x=3.73625445), 165 points chauds, 233237 pts, 467173 évals
+  [R5/6+corr] tour 6 : échantillon 4.684 ULP | vérif. [0,3.921875] 6.378 ULP (pire x=3.72147012), 75 points chauds, 233526 pts, 480874 évals
+  [R5/6+corr] tour 7 : échantillon 4.782 ULP | vérif. [0,3.921875] 6.109 ULP (pire x=3.5287478), 227 points chauds, 233728 pts, 488258 évals
+  [R5/6+corr] tour 8 : échantillon 4.923 ULP | vérif. [0,3.921875] 6.035 ULP (pire x=3.60011983), 337 points chauds, 234082 pts, 492262 évals
+  [R5/6+corr] tour 9 : échantillon 5.126 ULP | vérif. [0,3.921875] 6.141 ULP (pire x=3.25067449), 6497 points chauds, 234543 pts, 494274 évals
+  [R5/6+corr] tour 10 : échantillon 5.125 ULP | vérif. [0,3.921875] 6.194 ULP (pire x=3.73192167), 161 points chauds, 241153 pts, 495185 évals
+  [R5/6+corr] tour 11 : échantillon 5.135 ULP | vérif. [0,3.921875] 6.011 ULP (pire x=3.244385), 263 points chauds, 241436 pts, 495494 évals
+  [R5/6+corr] FINAL : Blackhole max 6.011 ULP (8.753 % > 1 ULP, moy 0.335) | Wormhole max 6.011 ULP | coût 54 vs 64 actuel
+
+[3] Contrôle négatif : 2M c=1.0 A6/B14 avec a0 décalé de 256 ULP -> max 64.86 ULP (doit être nettement pire)
+
+================================================================================================
+formule         coût    BH max   BH >1ULP   BH moy    WH max
+ACTUELLE          64     8.000      8.97%    0.341     8.000
+R5/6+corr         54     6.011     8.753%    0.335     6.011
+2M c=1.5 A7/B10    73     2.153     0.015%    0.182     2.153
+2M c=1.25 A7/B13    77     1.575     0.034%    0.128     1.575
+2M c=1.75 A8/B11    79     3.377    30.615%    0.805     3.377
+2M c=1.5 A7/B12    79     2.534     0.014%    0.430     2.534
+2M c=1.0 A6/B14    80     1.000     0.000%    0.374     1.000
+2M c=1.5 A8/B12    82     2.309     0.061%    0.390     2.309
+VERDICT : NON ATTEINT : aucune formule ne bat l'actuelle selon le critère.
+================================================================================================
+Fichiers écrits : erf_tt_resultats.json, erf_tt_noyau.txt
+Durée totale : 46.8 min
