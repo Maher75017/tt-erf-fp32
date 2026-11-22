@@ -1,6 +1,6 @@
 # tt-erf-fp32
 
-FP32 `erf` for the Tenstorrent SFPU (Blackhole and Wormhole): fewer instructions and a lower worst-case error than the current tt-metal kernel, checked on **every** positive FP32 input with a bit-exact model of the hardware arithmetic.
+FP32 `erf` for the Tenstorrent SFPU (Blackhole and Wormhole): a kernel within **1 ULP on every input**, and a faster variant with a lower worst case than the current tt-metal kernel. Both are checked on **every** positive FP32 input with a bit-exact model of the hardware arithmetic.
 
 Context: tt-metal issue [#58282](https://github.com/tenstorrent/tt-metal/issues/58282) (`ttnn.erf` FP32 accuracy), and [#61160](https://github.com/tenstorrent/tt-metal/issues/61160) (a possible PRECISE tier).
 Author: Maher El Hmissi ([Maher75017](https://github.com/Maher75017)), November 2026. Français : [README.fr.md](README.fr.md).
@@ -12,8 +12,8 @@ Exhaustive evaluation of all 2,139,095,041 positive FP32 inputs (0 to +inf; `erf
 | Kernel | SFPU instructions per element (estimate) | Max error, Blackhole | Max error, Wormhole | Inputs above 1 ULP (BH / WH) | Mean error |
 | --- | --- | --- | --- | --- | --- |
 | Current tt-metal (rational n16/d16 on [-10, 10], output clamp) | 64 | 8.000 ULP | 7.000 ULP | 8.97 % / 9.05 % | 0.341 ULP |
-| **Proposed default** (`R5/6+corr`: x·N(x²)/D(x²) + one correction step) | **54** | **6.011 ULP** | **6.011 ULP** | 8.75 % / 8.75 % | 0.335 ULP |
-| Precise variant (`2M c=1.0 A6/B14`: two polynomials, split at \|x\| = 1) | 80 | **1.000 ULP** | **1.000 ULP** | **0 % / 0 %** | 0.374 ULP |
+| Fast variant (`R5/6+corr`: x·N(x²)/D(x²) + one correction step) | 54 | **6.011 ULP** | **6.011 ULP** | 8.75 % / 8.75 % | 0.335 ULP |
+| **Precise variant, proposed to tt-metal** (`2M c=1.0 A6/B14`: two polynomials, split at \|x\| = 1) | 80 | **1.000 ULP** | **1.000 ULP** | **0 % / 0 %** | 0.374 ULP |
 
 Other variants (2.2 ULP at 73 instructions, 1.6 ULP at 77, …) are listed in `results/erf_tt_noyau.txt`, with every coefficient in hexadecimal.
 
@@ -22,16 +22,16 @@ Other variants (2.2 ULP at 73 instructions, 1.6 ULP at 77, …) are listed in `r
 The first version of this page said the Wormhole figures were identical to the Blackhole ones. That was wrong for kernels that divide. The 19 November run modelled Wormhole's SFPMAD, but used the Blackhole reciprocal sequence on both chips; tt-metal's Wormhole `sfpu_reciprocal` is a different algorithm (quadratic seed, two Newton steps, power-of-two scaling). With it modelled step by step (`model/wh_recip.c`, results in `results/wormhole_vraie_reciproque.txt`):
 
 - the current kernel on Wormhole is **7.000 ULP** max with 9.05 % of inputs above 1 ULP (not 8.000 ULP and 8.97 %);
-- the proposed kernel is unchanged on Wormhole (6.011 ULP, 8.75 %): its correction step absorbs the difference between the two reciprocals;
+- the fast variant is unchanged on Wormhole (6.011 ULP, 8.75 %): its correction step absorbs the difference between the two reciprocals;
 - the precise variant does not divide, so its figures were already right for both chips.
 
 A sample of 214,489 inputs puts the current kernel's worst case at 4.5 ULP; the exhaustive run finds 8.0 ULP on Blackhole (at x = 5.8636, where `erf` rounds to 1.0f). Sampling does not find the worst cases.
 
 ## Caveats, stated upfront
 
-- **Instruction counts are estimates** (SFPU instructions per element, including constant loads), not measured cycles. Cycles per tile will be measured on ttsim for the tt-metal pull request.
-- The gain of the proposed default is mostly in the worst case; its main benefit is about **15 % fewer instructions**.
-- The precise variant costs about 25 % more instructions. Given the performance concern in #58282, it is not proposed as the default.
+- **Instruction counts in the table are estimates.** Exact counts, from the kernels compiled with SFPI 7.96.0 (SFPU instructions per loop iteration of 32 elements): current 68 on Blackhole / 76 on Wormhole; fast variant 58 / 69; precise variant 81 / 85. These are instruction counts, not cycles.
+- The fast variant lowers the worst case, but about 18 % of [0, 4] stays above 1 ULP, as with the current kernel. The precise variant has no input above 1 ULP, for 19 % (Blackhole) / 12 % (Wormhole) more instructions.
+- The #58282 thread asked for lower error without degrading performance. The fast variant meets that bar strictly; the precise variant trades instructions for accuracy. The tt-metal pull request ([#66809](https://github.com/tenstorrent/tt-metal/pull/66809)) proposes the precise one and offers the fast one as an alternative. Measured with tt-llk's own ULP sweep on ttsim (`INP_FLOAT32` defined): worst 1 ULP on both chips, in exact and approximate mode.
 - My own success criterion, fixed before the search (in `erf/erf_tt.py`), was stricter: at most 1 ULP at no extra cost, or at most 2 ULP at no extra cost, or at most 1 ULP for at most 1.2 × the cost. **It was not met.** The results above are what the search found, reported as they are.
 
 ## How it was verified
@@ -82,7 +82,7 @@ The log of the reference run is `results/erf_tt.log`; all figures and coefficien
 
 ## Next step
 
-A pull request against tt-metal, referencing #58282: the kernel change for Blackhole and Wormhole, tests, the accuracy-budget entries, and cycles per tile measured on ttsim rather than estimated. Note: tt-llk's Float32 sweeps currently compile the bf16 path of `erf` ([#56492](https://github.com/tenstorrent/tt-metal/issues/56492)), so the pull request's measurements will define `INP_FLOAT32`.
+Pull request [tenstorrent/tt-metal#66809](https://github.com/tenstorrent/tt-metal/pull/66809): the precise variant for Blackhole and Wormhole (#58282), with the fast variant offered as an alternative. Note: tt-llk's Float32 sweeps currently compile the bf16 path of `erf` ([#56492](https://github.com/tenstorrent/tt-metal/issues/56492)), so the pull request's measurements will define `INP_FLOAT32`.
 
 ## Layout
 
