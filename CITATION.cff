@@ -5,6 +5,7 @@ authors:
   - family-names: "El Hmissi"
     given-names: "Maher"
 version: "1.0.0"
+doi: "10.5281/zenodo.24485626"
 date-released: "2026-11-24"
 license: Apache-2.0
 repository-code: "https://github.com/Maher75017/tt-erf-fp32"

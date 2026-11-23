@@ -1,5 +1,7 @@
 # tt-erf-fp32 (en français)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24485626.svg)](https://doi.org/10.5281/zenodo.24485626)
+
 La fonction `erf` en FP32 pour l'unité de calcul vectoriel (SFPU) des puces Tenstorrent Blackhole et Wormhole : un noyau à **1 ULP au plus sur toutes les entrées**, et une variante plus rapide dont l'erreur maximale est plus faible que celle du noyau actuel de tt-metal. Les deux sont vérifiés sur **toutes** les entrées FP32 positives avec un modèle bit à bit de l'arithmétique du matériel.
 
 Contexte : l'issue tt-metal [#58282](https://github.com/tenstorrent/tt-metal/issues/58282) (précision de `ttnn.erf` en FP32) et l'issue [#61160](https://github.com/tenstorrent/tt-metal/issues/61160) (un éventuel niveau « PRECISE »).

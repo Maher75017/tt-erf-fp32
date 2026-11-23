@@ -1,5 +1,7 @@
 # tt-erf-fp32
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24485626.svg)](https://doi.org/10.5281/zenodo.24485626)
+
 FP32 `erf` for the Tenstorrent SFPU (Blackhole and Wormhole): a kernel within **1 ULP on every input**, and a faster variant with a lower worst case than the current tt-metal kernel. Both are checked on **every** positive FP32 input with a bit-exact model of the hardware arithmetic.
 
 Context: tt-metal issue [#58282](https://github.com/tenstorrent/tt-metal/issues/58282) (`ttnn.erf` FP32 accuracy), and [#61160](https://github.com/tenstorrent/tt-metal/issues/61160) (a possible PRECISE tier).
