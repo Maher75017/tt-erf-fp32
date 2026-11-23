@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "tt-erf-fp32: FP32 erf for the Tenstorrent SFPU, at most 1 ULP on every input"
+authors:
+  - family-names: "El Hmissi"
+    given-names: "Maher"
+version: "1.0.0"
+date-released: "2026-11-24"
+license: Apache-2.0
+repository-code: "https://github.com/Maher75017/tt-erf-fp32"
+abstract: "FP32 erf for the Tenstorrent SFPU (Blackhole, Wormhole): a kernel within 1 ULP on every input and a faster variant, both checked on every positive FP32 input with a bit-exact model of the hardware arithmetic. Proposed upstream in tenstorrent/tt-metal pull request 66809."
+keywords:
+  - Tenstorrent
+  - SFPU
+  - erf
+  - floating point
+  - exhaustive testing
+  - numerical accuracy
