@@ -7,7 +7,7 @@ Auteur : Maher El Hmissi ([Maher75017](https://github.com/Maher75017)), novembre
 
 ## Résultats
 
-Évaluation exhaustive des 2 139 095 041 entrées FP32 positives (de 0 à +inf ; `erf` est impaire), sur des modèles bit à bit des deux puces.
+Évaluation exhaustive des 2 139 095 041 entrées FP32 positives (de 0 à +inf ; `erf` est impaire), sur des modèles bit à bit des deux puces. Le calcul principal exécute ces modèles en CUDA sur une carte NVIDIA RTX 5090 ; le contrôle du calcul de 1/x sur Wormhole (plus bas) tourne sur processeur.
 
 | Noyau | Instructions SFPU par élément (estimation) | Erreur maximale, Blackhole | Erreur maximale, Wormhole | Entrées au-dessus de 1 ULP (BH / WH) | Erreur moyenne |
 | --- | --- | --- | --- | --- | --- |
@@ -52,6 +52,12 @@ Sur un échantillon de 214 489 entrées, le pire cas du noyau actuel paraît êt
 
 5. **Contrôle négatif.** Décaler un seul coefficient de la variante précise de 256 ULP fait monter son erreur maximale à 64,9 ULP.
 6. **Saturation.** `erf(x)` s'arrondit à 1,0f dès x = 3,9192059 ; les entrées sont bornées à 3,921875, valeur exacte en bf16.
+
+## Travaux antérieurs
+
+- **CUDA (NVIDIA).** Norbert Juffa, qui a travaillé chez NVIDIA jusqu'en 2014, a publié sur le forum développeurs de NVIDIA une `erff` CUDA optimisée pour la précision ([2022, code mis à jour jusqu'en 2025](https://forums.developer.nvidia.com/t/accuracy-optimized-implementation-of-erff-without-performance-impact/218114) ; [une version antérieure pour CUDA 7.5](https://forums.developer.nvidia.com/t/optimized-version-of-single-precision-error-function-erff/40977)). Comme la variante précise d'ici, elle coupe le domaine à \|x\| = 1, avec erf(a) ≈ a + a·P(a²) en dessous : une forme classique. Au-dessus de 1, elle appelle l'exponentielle `exp2` matérielle du GPU ; la variante précise utilise à la place un seul polynôme en \|x\| − 2,46875, sans exponentielle ni division. L'erreur maximale annoncée est de 1,04 ULP, contre 1,14 ULP pour l'`erff` de CUDA 11. Les coefficients d'ici viennent de l'ajustement propre à ce dépôt (`erf/erf_tt.py`).
+- **Processeur.** La bibliothèque LLVM libc a une `erff` correctement arrondie depuis 2023 (32 sous-intervalles, polynôme impair de degré 15, calcul en double précision). Le SFPU n'a pas de double précision : cette recette ne s'y transpose pas directement.
+- **Ce que ce dépôt apporte**, ce n'est pas la forme de l'approximation, mais son adaptation au SFPU : des modèles bit à bit de l'arithmétique Blackhole et Wormhole, et une vérification de toutes les entrées FP32 sur les deux puces.
 
 ## Preuve de date
 

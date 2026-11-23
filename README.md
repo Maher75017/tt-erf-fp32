@@ -7,7 +7,7 @@ Author: Maher El Hmissi ([Maher75017](https://github.com/Maher75017)), November 
 
 ## Results at a glance
 
-Exhaustive evaluation of all 2,139,095,041 positive FP32 inputs (0 to +inf; `erf` is odd), on bit-exact models of both chips.
+Exhaustive evaluation of all 2,139,095,041 positive FP32 inputs (0 to +inf; `erf` is odd), on bit-exact models of both chips. The main run executes the models in CUDA on an NVIDIA RTX 5090; the Wormhole reciprocal check (below) runs on a CPU.
 
 | Kernel | SFPU instructions per element (estimate) | Max error, Blackhole | Max error, Wormhole | Inputs above 1 ULP (BH / WH) | Mean error |
 | --- | --- | --- | --- | --- | --- |
@@ -52,6 +52,12 @@ A sample of 214,489 inputs puts the current kernel's worst case at 4.5 ULP; the 
 
 5. **Negative control.** Shifting one coefficient of the precise variant by 256 ULP raises its maximum error to 64.9 ULP.
 6. **Saturation.** `erf(x)` rounds to 1.0f from x = 3.9192059; the inputs are clamped at 3.921875, exactly representable in bf16.
+
+## Prior art
+
+- **CUDA (NVIDIA).** Norbert Juffa, who worked at NVIDIA until 2014, published an accuracy-optimized CUDA `erff` on the NVIDIA developer forums ([2022, code updated until 2025](https://forums.developer.nvidia.com/t/accuracy-optimized-implementation-of-erff-without-performance-impact/218114); [an earlier version for CUDA 7.5](https://forums.developer.nvidia.com/t/optimized-version-of-single-precision-error-function-erff/40977)). Like the precise variant here, it splits the domain at \|x\| = 1, with erf(a) ≈ a + a·P(a²) below the split, a classic form. Above 1 it calls the GPU's hardware `exp2`; the precise variant uses a single polynomial in \|x\| − 2.46875 instead, with no exponential and no division. His stated maximum error is 1.04 ULP, against 1.14 ULP for CUDA 11's `erff`. The coefficients here come from this repository's own fitting (`erf/erf_tt.py`).
+- **CPU.** LLVM libc has had a correctly rounded `erff` since 2023 (32 sub-intervals, degree-15 odd polynomial, evaluated in double precision). The SFPU has no double precision, so that recipe does not carry over directly.
+- **What this repository adds** is not the shape of the approximation but its fit to the SFPU: bit-exact models of the Blackhole and Wormhole arithmetic, and a check of every FP32 input on both chips.
 
 ## Proof of date
 
